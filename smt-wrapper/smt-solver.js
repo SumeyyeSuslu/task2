@@ -18,56 +18,29 @@ var SMTSolver = (function () {
             throw e;
         }
     }
-    SMTSolver.prototype.run = function (expression, cb) {
+    SMTSolver.prototype.run = function (expression) {
         utils.writeOnFile(this.pathFile, expression);
-        this.executeExpression(this.pathFile, function (err, res) {
-            if (err) {
-                cb(err, null);
+        var cbExecuteExpression = this.executeExpression(this.pathFile);
+            if (cbExecuteExpression.err) {
+                return {err:cbExecuteExpression.err, res:null};
             }
             else {
-                cb(null, res);
+                return {err:null, res:cbExecuteExpression.res};
             }
-        });
+        
     };
-    SMTSolver.prototype.executeExpression = function (pathFile, cb) {
+    SMTSolver.prototype.executeExpression = function (pathFile) {
         var exec;
         var args;
-        var res = '';
+        var result = '';
+        var z3Err;
         var appPath = this.path;
-        if (this.name === 'cvc4') {
-            args = [
-                '-L',
-                'smt2',
-                pathFile
-            ];
-        }
-        else if (this.name === 'z3') {
-            args = [
-                '-smt2',
-                pathFile
-            ];
-        }
-        else if (this.name === 'z3-str') {
-            args = [
-                this.path,
-                '-f',
-                pathFile
-            ];
-            appPath = 'python';
-        }
-        exec = childProcess.spawn(appPath, args);
-        exec.stdout.setEncoding('utf8');
-        exec.stdout.on('data', function (data) {
-            res += data.toString().trim() + '\n';
-        });
-        exec.on('close', function (code) {
-            if (code === 0) {
-                cb(null, res);
-            }
-            else {
-                cb(new Error('Exit code different from 0'), null);
-            }
-        });
+        args = ['-smt2',pathFile];
+        exec = childProcess.spawnSync(appPath, args,{encoding:'utf8'});
+
+        result += exec.stdout.toString().trim() + '\n';
+        return {err:null, res:result};    
+    
     };
     SMTSolver.prototype.parseResponse = function (response) {
         var ret = {

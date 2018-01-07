@@ -1,0 +1,6 @@
+(declare-const x Int)
+(declare-const y Int)
+(assert (= (+ (* 3  x ) y ) 10 ))
+(assert (= (+ (* 2  x ) (* 2  y )) 21 ))
+(check-sat)
+(get-value (x y))

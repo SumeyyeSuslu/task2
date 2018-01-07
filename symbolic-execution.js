@@ -11,50 +11,36 @@ var sUtils = require('./symbolic-execution-utils');
 var SymEval = require('./symbolic-evaluation');
 var SymbolicMemory = require('./memory/symbolic-memory');
 var SymbolicExecution = (function () {
-    function SymbolicExecution() {
+    function SymbolicExecution(uParameters,solver) {
        // this.functionName = functionName;
         
         this.M = new ConcreteMemory();
         this.S = new SymbolicMemory();
-    }
-    SymbolicExecution.prototype.inspectFunction = function (uParameters,solver, cb) {
-        var that = this;
         this.response = {};
         this.response.errors = [];
         this.response.testCases = [];
         this.response.results = [];
         this.uParameters = uParameters;
-		this.smtSolver = new SMTSolver(solver.name, solver.path, solver.tmpPath);
-              
-       
+		this.smtSolver = new SMTSolver(solver.name, solver.path, solver.tmpPath);    
     };
+
     
     
-    
-    
-    SymbolicExecution.prototype.solvePathConstraint = function (kTry, pathConstraint,  cb) {
+    SymbolicExecution.prototype.solvePathConstraint = function (astConstraint) {
         var that = this;
-            var newPathConstraint = [];
-            for (var k = 0; k <= kTry; k++) {
-                newPathConstraint.push({
-                    'constraint': '!(' + pathConstraint[k] + ')',
-                    'M': this.M,
-                    'S': this.S
-                });
-            }
-            var s = [];
-            for (var k = 0; k < newPathConstraint.length; k++) {
-                s.push(newPathConstraint[k].constraint);
-            }
-            this.getPathConstraintSolution(newPathConstraint, function (err, res) {
-                if (err) {
-                    cb(new Error('Unable to get the solution of the path constraint. Reason: ' + err.message), null);
-                }
-                
+      /*  var newPathConstraint = [];
+        for (var k = 0; k < pathConstraint.length; k++) {
+            newPathConstraint.push({
+              //  'constraint': '!(' + pathConstraint[k] + ')',
+              'constraint': '(' + pathConstraint[k] + ')',
+                'M': this.M,
+                'S': this.S
             });
-        
-    };
-    SymbolicExecution.prototype.getPathConstraintSolution = function (pathConstraint, cb) {
+        }
+        //var s = [];
+        for (var k = 0; k < newPathConstraint.length; k++) {
+            console.log(newPathConstraint[k].constraint);
+        }*/
         var params = [];
         for (var pName in this.uParameters) {
             if (this.uParameters.hasOwnProperty(pName)) {
@@ -66,39 +52,40 @@ var SymbolicExecution = (function () {
                 });
             }
         }
-        var parserExpression = new ParserExpression(pathConstraint, params, this.smtSolver.getName(), null, null);
+        var parserExpression = new ParserExpression(astConstraint, params, this.smtSolver.getName());
         var that = this;
+        
         try {
-            parserExpression.parse(function (err, smtExpression) {
-                if (err) {
+            var cbparse = parserExpression.parse();
+                if (cbparse.err) {
                     var errorMessage;
-                    if (err instanceof Error) {
-                        errorMessage = err.message;
+                    if (cbparse.err instanceof Error) {
+                        errorMessage = cbparse.err.message;
                     }
                     else {
                         errorMessage = 'Error while parsing expression';
                     }
                     that.response.errors.push(errorMessage);
-                    cb(errorMessage, null);
+                    return {err:errorMessage, res: null};
                 }
                 else {
-                    that.smtSolver.run(smtExpression, function (err, res) {
-                        if (err) {
-                            that.response.errors.push('Unable to run SMT expression');
-                            console.log(smtExpression);
-                            cb(true, null);
+                    smtResponse = cbparse.res;
+                    console.log(smtResponse);
+                    var cbSmtSolverRun = that.smtSolver.run(smtResponse);
+                        if (cbSmtSolverRun.err) {
+                            that.response.errors.push('Unable to run SMT expression'); 
+                            return {err:true, res:null};
                         }
                         else {
-                            var smtResponse = that.smtSolver.parseResponse(res);
-                            cb(false, smtResponse);
+                            var smtResponse = that.smtSolver.parseResponse(cbSmtSolverRun.res);
+                            that.response.results.push(smtResponse);
+                            return {err:false, res:smtResponse};
                         }
-                    });
                 }
-            });
         }
         catch (e) {
             that.response.errors.push(e.message);
-            cb(true, null);
+            return {err:true, res:null};
         }
     };
     return SymbolicExecution;

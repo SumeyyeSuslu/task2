@@ -1,6 +1,6 @@
 var exec = require('child_process').spawn;
 
-var ls = exec('z3',['/home/sumeyye/Desktop/w4.smt2']);
+var ls = exec('z3',['/home/sumeyye/Desktop/task1/2pz.smt2']);
 
 ls.stdout.on('data', (data) => {
   console.log(`stdout: ${data}`);
